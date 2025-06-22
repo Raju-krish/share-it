@@ -14,8 +14,8 @@ After selecting a sender, a TCP connection is established to reliably transfer t
 4.  Supports Any File Type
 Transfer images, documents, audio files, and more — all handled in binary mode.
 
-5. Cross-System Compatibility
-Built using standard Linux system calls and C socket APIs.
+5. Simultaneous Transfers
+supports multiple receivers connecting to the same sender at once. Each receiver gets the file through a separate TCP connection, enabling efficient, concurrent transfers.
 
 ## How It Works
 ### Sender Mode:
