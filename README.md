@@ -2,19 +2,15 @@
 Shareit is a lightweight, terminal-based file sharing application for Linux systems, inspired by the original ShareIt app. It allows seamless file transfers across systems within the same local network using a hybrid UDP + TCP architecture.
 
 ## Features
-1. LAN Discovery with UDP Broadcast
+#### LAN Discovery with UDP Broadcast
 Receivers broadcast a discovery message over the network; all available senders respond with their details.
-
-2. Multi-Server Awareness
+#### Multi-Server Awareness
 The receiver lists all available servers (senders) on the LAN, allowing the user to choose which one to connect to.
-
-3. TCP-Based File Transfer
+#### TCP-Based File Transfer
 After selecting a sender, a TCP connection is established to reliably transfer the file.
-
-4.  Supports Any File Type
+#### Supports Any File Type
 Transfer images, documents, audio files, and more — all handled in binary mode.
-
-5. Simultaneous Transfers
+#### Simultaneous Transfers
 supports multiple receivers connecting to the same sender at once. Each receiver gets the file through a separate TCP connection, enabling efficient, concurrent transfers.
 
 ## How It Works
