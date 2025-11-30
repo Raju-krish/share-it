@@ -4,56 +4,52 @@
  */
 
 #include "shareit.h"
+#include <fcntl.h>
+#include <libgen.h>
+#include <string.h>
 
 struct discovery_response resp;
 char *failure_disc_msg = "Hey buddy, you are not sending discovery message";
 
 /*
- * Function name    : send_file_metadata
+ * Function name    : send_metadata
  * Description      : Sends metadata of file to client
  * Aruments         : Client's socket file descriptor
  * Return           : None
  */
-struct file_info send_file_metadata(int sock_fd)
+struct file_info send_metadata(int sock_fd, char *base)
 {
     struct stat st;
     struct file_info file;
 
-    stat(fshare_name, &st);
-    strncpy(file.name, basename(fshare_name), sizeof(file.name));
+    stat(base, &st);
+    strncpy(file.name, base, sizeof(file.name));
     file.size = st.st_size;
     file.perm = st.st_mode;
+    file.type = st.st_mode & S_IFMT;
+    
     send(sock_fd, &file, sizeof(file), 0);
     return file;
 }
 
-/*
- * Function name    : send_file
- * Description      : Send file to client
- * Aruments         : Client's socket file descriptor
- * Return           : None
- */
-void* send_file(void *arg)
+
+void send_file_content(int sock_fd, char *client_ip, char *file_name, struct file_info file)
 {
-    // int sock_fd = *(int*)arg;
-    struct thread_arg *data = (struct thread_arg*)arg;
-    char buf[1024] = {0};
     int bytes_read = 0;
     int bytes_sent = 0;
     int total_sent_bytes = 0;
-
-    struct file_info file =  send_file_metadata(data->sock_fd);
-    FILE *fp = fopen(fshare_name, "rb");
+    char buf[1024] = {0};
+    FILE *fp = fopen(file_name, "rb");
     if(fp == NULL) {
         perror("fopen failed: ");
-        return NULL;
+        return;
     }
 
     while ((bytes_read = fread(buf,1, sizeof(buf), fp)) > 0) {
-        bytes_sent = send(data->sock_fd, buf, bytes_read, 0);
+        bytes_sent = send(sock_fd, buf, bytes_read, 0);
         total_sent_bytes += bytes_sent;
         float percent = (total_sent_bytes * 100.0) / file.size;
-        printf("\r%s to %s\t\t\t\t%.2f%%", file.name, data->client_ip, percent);
+        printf("\r%s to %s\t\t\t\t%.2f%%", file.name, client_ip, percent);
         fflush(stdout);
         if(bytes_sent < 0) {
             perror("Send failed:  ");
@@ -62,6 +58,46 @@ void* send_file(void *arg)
 
     printf("\nDone Sending !\n");
     fclose(fp);
+}
+
+void send_dir(int sock_fd, char *client_ip, char *path)
+{
+    DIR *p_dir = opendir(path);
+    struct dirent *p_entry;
+    char rel_path[512] = {0};
+    while((p_entry = readdir(p_dir)) != NULL) {
+        if(strncmp(p_entry->d_name, ".", 2) == 0 || strncmp(p_entry->d_name, "..", 3) == 0) {
+            continue;
+        }
+        snprintf(rel_path, sizeof(rel_path), "%s/%s", path, p_entry->d_name);
+        struct file_info file = send_metadata(sock_fd, rel_path);
+        if(file.type == S_IFDIR) 
+            send_dir(sock_fd, client_ip, rel_path);
+        else 
+            send_file_content(sock_fd, client_ip, rel_path, file);
+    }
+
+}
+/*
+ * Function name    : send_file
+ * Description      : Send file to client
+ * Aruments         : Client's socket file descriptor
+ * Return           : None
+ */
+void* send_file(void *arg)
+{
+    struct thread_arg *data = (struct thread_arg*)arg;
+    char base[512] = {0};
+    snprintf(base, sizeof(base), "%s", basename(fshare_name));
+
+    struct file_info file =  send_metadata(data->sock_fd, base);
+    if(file.type == S_IFDIR) { // It's a directory
+        printf("Its, a  directory\n");
+        send_dir(data->sock_fd, data->client_ip, fshare_name);
+    } 
+    else {
+        send_file_content(data->sock_fd, data->client_ip, fshare_name, file);
+    }
     close(data->sock_fd);
     free(data);
     return NULL;

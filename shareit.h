@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <libgen.h> // For basename
 
 #define SHAREIT_DISCOVERY_PORT 6776
@@ -42,6 +43,7 @@ struct available_server {
 struct file_info {
     char name[512];
     size_t size;
+    int type;
     mode_t perm;
 };
 

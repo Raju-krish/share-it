@@ -44,6 +44,10 @@ void get_target_server_ip(char *server_ip, int server_num)
     }
 }
 
+int recv_metadata(int sock_fd, struct file_info *file)
+{
+    return recv(sock_fd, file, sizeof(struct file_info), 0);
+}
 /*
  * Function name    : recv_file
  * Description      : Receives the file metadata, creates file, writes the data shared from server.
@@ -57,28 +61,49 @@ void recv_file(int sock_fd)
     struct file_info file;
     int total_recv_bytes = 0;
 
-    recv(sock_fd, &file, sizeof(file), 0);
+    int recv_status = recv_metadata(sock_fd, &file);
+    printf("Receiving : %s - ", file.name);
 
-    int fd = open(file.name, O_WRONLY | O_CREAT | O_TRUNC, file.perm & 0777);
-    if(fd == -1) {
-        printf("opening this file %s\n", file.name);
-        perror("open failed ");
+    if(recv_status <= 0) { 
+        printf("No data recevied/stop\n");
         return;
     }
-
-    while((bytes_received = recv(sock_fd, buf, sizeof(buf), 0)) > 0) {
-        write(fd, buf, bytes_received);
-
-        total_recv_bytes += bytes_received;
-        float percent = (total_recv_bytes * 100.0) / file.size;
-        printf("\r%s\t\t\t\t%.2f%%", file.name, percent);
-        fflush(stdout);
-
-        if(total_recv_bytes == file.size)
-            break;
+    if(file.type == S_IFDIR) {
+        printf("It's directory\n");
+        mkdir(file.name, file.perm);
+        // while(recv(sock_fd, &file, sizeof(struct file_info), 0) > 0) {
+        //     printf("Receiving : %s\n", file.name);
+        // }
     }
-    printf("\n");
-    close(fd);
+    else {
+        printf("It's File\n");
+        int fd = open(file.name, O_WRONLY | O_CREAT | O_TRUNC, file.perm & 0777);
+        if(fd == -1) {
+            printf("opening this file %s\n", file.name);
+            perror("open failed ");
+            return;
+        }
+
+        while(total_recv_bytes < file.size) {
+            size_t remaining_bytes = file.size - total_recv_bytes;
+            size_t recv_len = (remaining_bytes < sizeof(buf)) ? remaining_bytes : sizeof(buf);
+
+            bytes_received = recv(sock_fd, buf, recv_len, 0);
+            if (bytes_received <= 0) {
+                break;
+            }
+
+            write(fd, buf, bytes_received);
+
+            total_recv_bytes += bytes_received;
+            float percent = (total_recv_bytes * 100.0) / file.size;
+            printf("\r%s\t\t\t\t%.2f%%", file.name, percent);
+            fflush(stdout);
+        }
+        printf("\n");
+        close(fd);
+    }
+    recv_file(sock_fd);
 }
 
 /*
@@ -218,6 +243,7 @@ void send_discovery_message()
             goto cleanup_exit;
         }
         if(bytes > 0){
+            inet_ntop(AF_INET, &serv_addr.sin_addr, resp.ip, IP_ADDR_LEN);
             printf("From server : %s - %s\n", resp.ip, resp.hostname);
             insert_server_entry(resp);
         }
