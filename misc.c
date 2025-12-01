@@ -4,7 +4,33 @@
  */
 
 #include "shareit.h"
+#include "md5.h"
 
+int md5_file(const char *path, unsigned char *md5_out)
+{
+    unsigned char buffer[4096];
+    MD5_CTX ctx;
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return -1;
+
+    MD5_Init(&ctx);
+
+    size_t bytes;
+    while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) != 0) {
+        MD5_Update(&ctx, buffer, bytes);
+    }
+
+    MD5_Final(md5_out, &ctx);
+    fclose(fp);
+    return 0;
+}
+
+void md5_to_hex(const unsigned char *md5, char *out)
+{
+    for (int i = 0; i < 32; i++)
+        sprintf(out + (i * 2), "%02x", md5[i]);
+    out[32] = '\0';
+}
 /*
  * Function name    : get_iface_ipaddr
  * Description      : Fills the IP-address of wifi interface

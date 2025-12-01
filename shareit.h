@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <libgen.h> // For basename
+#include "md5.h"
 
 #define SHAREIT_DISCOVERY_PORT 6776
 #define SHAREIT_MAIN_PORT 6777
@@ -45,6 +46,7 @@ struct file_info {
     size_t size;
     int type;
     mode_t perm;
+    char checksum[34];
 };
 
 struct thread_arg {
@@ -63,3 +65,5 @@ void* handle_file_share(void *arg);
 void print_list();
 void recv_file_from_server(int server_num);
 void free_server_list();
+void md5_to_hex(const unsigned char *md5, char *out);
+int md5_file(const char *path, unsigned char *md5_out);

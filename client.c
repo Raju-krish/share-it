@@ -4,6 +4,7 @@
  */
 
 #include "shareit.h"
+#include "md5.h"
 
 struct available_server *head = NULL;
 
@@ -62,18 +63,20 @@ void recv_file(int sock_fd)
     int total_recv_bytes = 0;
 
     int recv_status = recv_metadata(sock_fd, &file);
-    printf("Receiving : %s - ", file.name);
 
     if(recv_status <= 0) { 
         printf("No data recevied/stop\n");
         return;
     }
+    if(strncmp((char*)&file, "STOP_TRANS", strlen("STOP_TRANS")) == 0) {
+        printf("Server sends stop transaction\n");
+        return;
+    }
+    printf("Receiving : %s - ", file.name);
+
     if(file.type == S_IFDIR) {
         printf("It's directory\n");
         mkdir(file.name, file.perm);
-        // while(recv(sock_fd, &file, sizeof(struct file_info), 0) > 0) {
-        //     printf("Receiving : %s\n", file.name);
-        // }
     }
     else {
         printf("It's File\n");
@@ -102,6 +105,14 @@ void recv_file(int sock_fd)
         }
         printf("\n");
         close(fd);
+        unsigned char md5[34] = {0};
+        char md5_string[34] = {0};
+        md5_file(file.name, md5);
+        md5_to_hex(md5, md5_string);
+        printf("Md5_string = %s\nServer_md5 = %s\n", md5_string, file.checksum);
+        if(strncmp(md5_string, file.checksum, sizeof(file.checksum)) != 0) {
+            printf("[Error]: Mismatcehd md5sum for %s\n", file.name);
+        }
     }
     recv_file(sock_fd);
 }

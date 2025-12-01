@@ -11,6 +11,7 @@
 struct discovery_response resp;
 char *failure_disc_msg = "Hey buddy, you are not sending discovery message";
 
+
 /*
  * Function name    : send_metadata
  * Description      : Sends metadata of file to client
@@ -28,10 +29,14 @@ struct file_info send_metadata(int sock_fd, char *base)
     file.perm = st.st_mode;
     file.type = st.st_mode & S_IFMT;
     
+    if(file.type != S_IFDIR) {
+        unsigned char md5[34] = {0};
+        md5_file(file.name, md5);
+        md5_to_hex(md5, file.checksum);
+    }
     send(sock_fd, &file, sizeof(file), 0);
     return file;
 }
-
 
 void send_file_content(int sock_fd, char *client_ip, char *file_name, struct file_info file)
 {
@@ -98,6 +103,7 @@ void* send_file(void *arg)
     else {
         send_file_content(data->sock_fd, data->client_ip, fshare_name, file);
     }
+    send(data->sock_fd, "STOP_TRANS", strlen("STOP_TRANS"), 0);
     close(data->sock_fd);
     free(data);
     return NULL;
